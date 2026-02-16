@@ -45,7 +45,7 @@ class TestRegistration:
         """
         response = await client.post("/api/v1/auth/register", json=invalid_payload)
 
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
         # Check that the error message contains the expected hint (e.g. "digit", "lowercase")
         assert expected_error.lower() in str(response.json()).lower()
 
@@ -141,7 +141,7 @@ class TestPasswordChange:
             json={"old_password": test_user_data["password"], "new_password": "weak"},
             headers=auth_headers
         )
-        assert res.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert res.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 class TestSessionManagement:

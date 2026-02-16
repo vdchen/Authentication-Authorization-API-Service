@@ -42,7 +42,8 @@ auth-api-service/
 │   │       ├── __init__.py
 │   │       └── endpoints/
 │   │           ├── __init__.py
-│   │           └── auth.py     # Authentication endpoints
+│   │           ├── auth.py     # Authentication endpoints
+│   │           └── users.py    # Users endpoints
 │   ├── core/
 │   │   ├── __init__.py
 │   │   ├── security.py         # Security utilities (JWT, password hashing)
@@ -57,18 +58,22 @@ auth-api-service/
 │   │   └── auth.py             # Pydantic validation schemas
 │   ├── services/
 │   │   ├── __init__.py
-│   │   └── auth_service.py     # Business logic layer
+│   │   ├── auth_service.py     # Business logic layer
+│   │   └── user_service.py     # Business logic layer
 │   └── utils/
 │       ├── __init__.py
 │       └── redis_client.py     # Async Redis client
 ├── tests/
 │   ├── __init__.py
 │   ├── conftest.py             # Pytest fixtures
-│   └── test_auth.py            # Authentication tests
+│   ├── test_auth.py            # Authentication tests
+│   └── test_user_features.py   # user features tests
 ├── Dockerfile
+├── manage.py
 ├── docker-compose.yml
 ├── requirements.txt
-├── .env.example
+├── .env
+├── pytest.ini
 └── README.md
 ```
 

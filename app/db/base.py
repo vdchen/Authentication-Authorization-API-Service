@@ -1,5 +1,6 @@
 """Database base configuration."""
-from app.db.models import Base
+from sqlalchemy.orm import DeclarativeBase
 
-# Export Base for use in other modules
-__all__ = ["Base"]
+class Base(DeclarativeBase):
+    """Base class for all SQLAlchemy models."""
+    pass

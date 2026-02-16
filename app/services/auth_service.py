@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import User
 from app.schemas.auth import UserRegister, UserLogin, PasswordChange
+from sqlalchemy.sql import func
 # Import the password_hash object for the upgrade logic
 from app.core.security import hash_password, verify_password, create_access_token, password_hash
 from app.core.exceptions import (
@@ -75,8 +76,15 @@ class AuthService:
             # If the hash needs upgrading (e.g., from Bcrypt to Argon2id), save.
             if new_hash:
                 user.hashed_password = new_hash
-                await self.db.commit()
-            # ----------------------------
+
+            # Add balance bonus (100 cents = 1.00)
+            user.balance += 100
+
+            # Update last activity timestamp
+            user.last_activity_at = func.now()
+
+            # Commit the hash upgrade, balance change, and timestamp
+            await self.db.commit()
 
             session_id = str(uuid.uuid4())
             access_token = create_access_token(

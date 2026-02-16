@@ -17,7 +17,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Force tests to use Redis DB 9 (Safety measure)
-settings.redis_url = "redis://localhost:6379/9"
+settings.redis_url = "redis://127.0.0.1:6379/9"
 
 # Test database URL
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
@@ -94,6 +94,15 @@ async def auth_headers(client: AsyncClient, registered_user):
     assert response.status_code == 200
     token = response.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
+
+@pytest_asyncio.fixture
+async def authenticated_user_profile(client: AsyncClient, auth_headers):
+    """
+    Fixture that completes the profile (names) for tests that require it.
+    """
+    profile_data = {"first_name": "Vlad", "last_name": "Cottbus"}
+    await client.patch("/api/v1/users/me", json=profile_data, headers=auth_headers)
+    return profile_data
 
 
 @pytest.fixture
