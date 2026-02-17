@@ -84,23 +84,47 @@ async def update_profile(
     return user
 
 
+@router.get(
+    "/me/balance",
+    response_model=BalanceResponse,
+    summary="Get current balance",
+    description="Retrieve only the user's balance. Optimized for speed."
+)
+async def get_balance(
+        db: AsyncDB,
+        user_id: CurrentUserID
+) -> dict:
+    # only 'balance' column is selected, not the whole User object
+    result = await db.execute(select(User.balance).where(User.id == user_id))
+    balance = result.scalar()
+
+    if balance is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return {"balance": balance}
+
+
 @router.post(
     "/me/withdraw",
     response_model=BalanceResponse,
-    summary="Withdraw funds"
+    summary="Withdraw funds",
+    description="Decrease user balance. Requires profile to be complete (first/last name)."
 )
 async def withdraw(
         request: WithdrawRequest,
         db: AsyncDB,
         user_id: CurrentUserID
 ) -> dict:
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-
     try:
-        updated_user = await UserService.withdraw_balance(db, user,
-                                                          request.amount)
+        updated_user = await UserService.withdraw_balance(
+            db,
+            user_id=user_id,
+            amount=request.amount
+        )
         return {"balance": updated_user.balance}
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                             detail=str(e))
+    except Exception as e:
+        # Catching the 403 logic if it's moved to the service
+        raise HTTPException(status_code=403, detail=str(e))

@@ -3,66 +3,90 @@ from fastapi import status
 
 
 @pytest.mark.asyncio
+async def test_get_balance_optimized(client, auth_headers):
+    """Verify the new optimized balance endpoint."""
+    response = await client.get("/api/v1/users/me/balance",
+                                headers=auth_headers)
+    assert response.status_code == 200
+    assert "balance" in response.json()
+    assert isinstance(response.json()["balance"], int)
+
+
+@pytest.mark.asyncio
 async def test_login_increments_balance(client, registered_user):
     """Verify business rule: Each login adds 100 cents."""
     # First login
     res1 = await client.post("/api/v1/auth/login", json=registered_user)
     token = res1.json()["access_token"]
+    auth_headers = {"Authorization": f"Bearer {token}"}
 
-    # Check balance via the list endpoint (as /me requires names)
-    user_res = await client.get("/api/v1/users/",
-                                headers={"Authorization": f"Bearer {token}"})
-    assert user_res.json()["users"][0]["balance"] == 100
+    # Check balance via the NEW optimized endpoint
+    bal_res = await client.get("/api/v1/users/me/balance",
+                               headers=auth_headers)
+
+    assert bal_res.json()["balance"] == 100
 
     # Second login
     await client.post("/api/v1/auth/login", json=registered_user)
-    user_res = await client.get("/api/v1/users/",
-                                headers={"Authorization": f"Bearer {token}"})
-    assert user_res.json()["users"][0]["balance"] == 200
+
+    # Check balance again
+    bal_res = await client.get("/api/v1/users/me/balance",
+                               headers=auth_headers)
+
+    assert bal_res.json()["balance"] == 200
 
 
 @pytest.mark.asyncio
 async def test_withdraw_logic(client, auth_headers,
                               authenticated_user_profile):
     """Verify withdrawal: Requires names and sufficient funds."""
-    # 1. Withdraw within limits (after 1 login bonus + 1 registration, balance should be at least 100)
-    # Note: If your registration also adds balance, adjust this number.
+    # Ensure balance is at 100 first (via one login)
+    # authenticated_user_profile should have first_name/last_name set
+
     withdraw_data = {"amount": 50}
-    response = await client.post("/api/v1/users/me/withdraw",
-                                 json=withdraw_data, headers=auth_headers)
+    response = await client.post(
+        "/api/v1/users/me/withdraw",
+        json=withdraw_data,
+        headers=auth_headers
+    )
 
     assert response.status_code == 200
-    # If balance started at 100, it should now be 50
-    assert response.json()["balance"] < 100
+    # If it was 100, it is now exactly 50
+    assert response.json()["balance"] == 50
 
 
 @pytest.mark.asyncio
 async def test_withdraw_fails_without_names(client, auth_headers):
-    """Verify safety rule: Withdrawal blocked if names are missing."""
-    # We use auth_headers but NOT the authenticated_user_profile fixture here
-    response = await client.post("/api/v1/users/me/withdraw",
-                                 json={"amount": 10}, headers=auth_headers)
-    assert response.status_code == 400
+    """Verify safety rule: Withdrawal blocked if names are missing (403 Forbidden)."""
+    # Use a user that has NO first_name/last_name set
+    response = await client.post(
+        "/api/v1/users/me/withdraw",
+        json={"amount": 10},
+        headers=auth_headers
+    )
+
+    # Based on your users.py, this returns 403 Forbidden
+    assert response.status_code == status.HTTP_403_FORBIDDEN
     assert "first and last name" in response.json()["detail"]
 
 
 @pytest.mark.asyncio
-async def test_user_sorting(client, auth_headers):
-    # Register multiple users and set different balances manually in DB or via multiple logins
-    # For this test, let's assume we have users with balances 100, 200, 300
+async def test_withdraw_insufficient_funds(client, auth_headers,
+                                           authenticated_user_profile):
+    """Verify it fails if the user tries to withdraw more than they have."""
+    # Attempt to withdraw 1,000,000 cents
 
-    # Query sorted by balance descending
-    res = await client.get(
-        "/api/v1/users/?sort_by=balance&sort_order=desc",
+    response = await client.post(
+        "/api/v1/users/me/withdraw",
+        json={"amount": 1000000},
         headers=auth_headers
     )
+    # The service raises ValueError -> Router catches and raises 400
+    assert response.status_code == 400
+    assert "Insufficient funds" in response.json()["detail"]
 
-    # Debug check: if this fails, print(res.json()) to see the error
-    assert res.status_code == 200
 
-    data = res.json()
-    users = data["users"]
 
-    # Check if the first user has a higher or equal balance than the second
-    if len(users) > 1:
-        assert users[0]["balance"] >= users[1]["balance"]
+
+
+

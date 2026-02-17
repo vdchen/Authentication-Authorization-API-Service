@@ -37,11 +37,22 @@ class UserService:
         return list(result.scalars().all())
 
     @staticmethod
-    async def withdraw_balance(db: AsyncSession, user: User,
+    async def withdraw_balance(db: AsyncSession, user_id: int,
                                amount: int) -> User:
+        # Fetch the user by ID and lock the row
+        result = await db.execute(
+            select(User).where(User.id == user_id).with_for_update()
+        )
+        user = result.scalar_one_or_none()
+
+        if not user:
+            raise ValueError("User not found.")
+
+        # Business Logic
         if not user.first_name or not user.last_name:
-            raise ValueError(
-                "Profile must have first and last name to withdraw.")
+            # Raise a custom exception here to catch a 403 in the router
+            raise Exception(
+                "Profile incomplete. Please set your first and last name.")
 
         if user.balance < amount:
             raise ValueError("Insufficient funds.")

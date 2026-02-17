@@ -25,7 +25,8 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 # Overwrite the SQLAlchemy URL with the App Settings
-config.set_main_option("sqlalchemy.url", settings.database_url)
+# str() just in case settings.database_url is a Pydantic object
+config.set_main_option("sqlalchemy.url", str(settings.database_url))
 
 
 def run_migrations_offline() -> None:
