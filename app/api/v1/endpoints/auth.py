@@ -59,14 +59,33 @@ async def login(
         auth_service: Authentication service
 
     Returns:
-        Access token and session information
+        access, refresh, session_id, and user
     """
-    access_token, session_id, user = await auth_service.login_user(credentials)
+    access_token, refresh_token, session_id, user = await auth_service.login_user(
+        credentials)
 
     return TokenResponse(
         access_token=access_token,
-        token_type="bearer",
+        refresh_token=refresh_token,
         session_id=session_id
+    )
+
+
+@router.post("/refresh", response_model=TokenResponse)
+async def refresh(
+        # Expect the refresh token in the body or header
+        refresh_token: str,
+        auth_service: Annotated[AuthService, Depends(get_auth_service)]
+):
+    """Endpoint to exchange a refresh token for a new access token."""
+    new_access, current_refresh = await auth_service.refresh_session(
+        refresh_token)
+
+    return TokenResponse(
+        access_token=new_access,
+        refresh_token=current_refresh,
+        # session_id stays the same
+        session_id="..."
     )
 
 

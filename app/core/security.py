@@ -36,22 +36,39 @@ async def verify_password(plain_password: str, hashed_password: str) -> bool:
     )
 
 
-def create_access_token(data: dict,
-                        expires_delta: Optional[timedelta] = None) -> str:
-    """Create a JWT access token with proper UTC awareness."""
+def create_token(data: dict, expires_delta: timedelta, token_type: str) -> str:
+    """Generic function to create JWT tokens with a specific type."""
     to_encode = data.copy()
     now = datetime.now(timezone.utc)
+    expire = now + expires_delta
 
-    expire = now + (expires_delta or timedelta(
-        minutes=settings.access_token_expire_minutes))
-
-    to_encode.update({"exp": expire, "iat": now})
+    # Add type and expiration to the payload
+    to_encode.update({
+        "exp": expire,
+        "iat": now,
+        "type": token_type
+    })
 
     return jwt.encode(
         to_encode,
         settings.secret_key,
         algorithm=settings.algorithm
     )
+
+
+def create_tokens(data: dict) -> tuple[str, str]:
+    """Helper to generate both tokens at once."""
+    access_token = create_token(
+        data,
+        timedelta(minutes=settings.access_token_expire_minutes),
+        "access"
+    )
+    refresh_token = create_token(
+        data,
+        timedelta(days=settings.refresh_token_expire_days),
+        "refresh"
+    )
+    return access_token, refresh_token
 
 
 def decode_access_token(token: str) -> dict:

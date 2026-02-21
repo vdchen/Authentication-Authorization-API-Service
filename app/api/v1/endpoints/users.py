@@ -4,8 +4,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.db.session import get_async_session
-from app.db.models import User
-from app.dependencies import get_current_user
+from app.db.models import User, Role
+from app.dependencies import get_current_user, get_current_user_obj
 from app.schemas.user import UserListResponse, UserBase, UserUpdate, WithdrawRequest, BalanceResponse
 from app.services.user_service import UserService
 
@@ -92,8 +92,12 @@ async def update_profile(
 )
 async def get_balance(
         db: AsyncDB,
-        user_id: CurrentUserID
+        user_id: CurrentUserID,
+        current_user: Annotated[User, Depends(get_current_user_obj)]
 ) -> dict:
+    if current_user.role == Role.ADMIN:
+        raise HTTPException(status_code=400,
+                            detail="Admins do not have a balance.")
     # only 'balance' column is selected, not the whole User object
     result = await db.execute(select(User.balance).where(User.id == user_id))
     balance = result.scalar()
@@ -113,8 +117,14 @@ async def get_balance(
 async def withdraw(
         request: WithdrawRequest,
         db: AsyncDB,
-        user_id: CurrentUserID
+        user_id: CurrentUserID,
+        current_user: Annotated[User, Depends(get_current_user_obj)]
 ) -> dict:
+
+    if current_user.role == Role.ADMIN:
+        raise HTTPException(status_code=400,
+                            detail="Admins cannot perform financial transactions.")
+
     try:
         updated_user = await UserService.withdraw_balance(
             db,
@@ -128,3 +138,25 @@ async def withdraw(
     except Exception as e:
         # Catching the 403 logic if it's moved to the service
         raise HTTPException(status_code=403, detail=str(e))
+
+
+@router.delete(
+    "/me",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete my account"
+)
+async def delete_my_account(
+        db: AsyncDB,
+        user_id: CurrentUserID
+) -> None:
+    # 1. Fetch user
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # 2. Perform Soft Delete (is_deleted = True, update email)
+    await UserService.soft_delete_user(db, user)
+
+    return None

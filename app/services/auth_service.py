@@ -1,18 +1,25 @@
 """Authentication service with business logic."""
 import uuid
+from datetime import timedelta
 from typing import Optional, Tuple
+
+import jwt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.config import settings
 from app.db.models import User
 from app.schemas.auth import UserRegister, UserLogin, PasswordChange
 from sqlalchemy.sql import func
 # Import the password_hash object for the upgrade logic
-from app.core.security import hash_password, verify_password, create_access_token, password_hash
+from app.core.security import hash_password, verify_password, create_tokens, \
+    password_hash, decode_access_token, create_token
 from app.core.exceptions import (
     UserAlreadyExistsError,
     UserNotFoundError,
     InvalidPasswordError,
-    DatabaseError,
+    DatabaseError, SessionNotFoundError,
+    AuthenticationError
 )
 from app.utils.redis_client import RedisClient
 
@@ -53,7 +60,7 @@ class AuthService:
             await self.db.rollback() # Safety first!
             raise DatabaseError(f"Failed to register user: {str(e)}")
 
-    async def login_user(self, credentials: UserLogin) -> Tuple[str, str, User]:
+    async def login_user(self, credentials: UserLogin) -> Tuple[str, str, str, User]:
         """Authenticate user and perform automatic password hash upgrade."""
         try:
             result = await self.db.execute(
@@ -87,17 +94,46 @@ class AuthService:
             await self.db.commit()
 
             session_id = str(uuid.uuid4())
-            access_token = create_access_token(
+            # Generate both tokens including session_id
+            access_token, refresh_token = create_tokens(
                 data={"sub": user.email, "session_id": session_id}
             )
 
             await self.redis.set_session(session_id, user.id)
-            return access_token, session_id, user
+            return access_token, refresh_token, session_id, user
 
         except (UserNotFoundError, InvalidPasswordError):
             raise
         except Exception as e:
             raise DatabaseError(f"Failed to login user: {str(e)}")
+
+    async def refresh_session(self, refresh_token: str) -> Tuple[str, str]:
+        """Validates refresh token and issues a new access token."""
+        try:
+            payload = decode_access_token(refresh_token)
+
+            # Security Check: Ensure this is actually a refresh token
+            if payload.get("type") != "refresh":
+                raise AuthenticationError("Invalid token type")
+
+            session_id = payload.get("session_id")
+            user_id = await self.redis.get_session(session_id)
+
+            if not user_id:
+                raise SessionNotFoundError()
+
+            # Issue a new access token
+            new_access_token = create_token(
+                data={"sub": payload.get("sub"), "session_id": session_id},
+                expires_delta=timedelta(
+                    minutes=settings.access_token_expire_minutes),
+                token_type="access"
+            )
+
+            return new_access_token, refresh_token  # Usually keep same refresh token
+        except jwt.PyJWTError:
+            raise AuthenticationError("Invalid or expired refresh token")
+
 
     async def logout_user(self, session_id: str) -> None:
         """Logout user by deleting session from Redis."""

@@ -1,10 +1,13 @@
 """Pytest configuration and fixtures."""
 import asyncio
+
+import jwt
 import pytest
 import pytest_asyncio
 from typing import AsyncGenerator
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.orm import sessionmaker
 
 from app.main import app
 from app.db.base import Base
@@ -12,7 +15,9 @@ from app.db.session import get_async_session
 from app.utils.redis_client import get_redis_client, RedisClient
 from app.config import settings
 import logging
-
+from app.db.models import Base, User, Role
+from app.core.security import create_tokens
+from app.core.security import hash_password
 # Setup logging for tests
 logger = logging.getLogger(__name__)
 
@@ -121,3 +126,49 @@ def test_user_data_2():
         "email": "test2@example.com",
         "password": "SecurePass456#",
     }
+
+
+@pytest_asyncio.fixture(scope="function")
+async def admin_token(client: AsyncClient, db_session: AsyncSession) -> str:
+    admin_password = "AdminPassword123!"
+    admin_data = {
+        "email": "admin@test.com",
+        "password": admin_password,
+    }
+
+    admin = User(
+        email=admin_data["email"],
+        hashed_password=await hash_password(admin_password),
+        role=Role.ADMIN,
+        is_blocked=False,
+        is_deleted=False
+    )
+    db_session.add(admin)
+    await db_session.commit()
+
+    response = await client.post("/api/v1/auth/login", json=admin_data)
+
+    # Check status before accessing dict
+    assert response.status_code == 200, f"Login failed: {response.text}"
+    return response.json()["access_token"]
+
+
+@pytest_asyncio.fixture(scope="function")
+async def user_token(client: AsyncClient, db_session: AsyncSession) -> str:
+    """Register and Login a user via API to ensure Redis session exists."""
+    password = "UserPass123!"
+    user = User(
+        email="user@test.com",
+        hashed_password=await hash_password(password),
+        role=Role.USER,
+        is_blocked=False,
+        is_deleted=False
+    )
+    db_session.add(user)
+    await db_session.commit()
+
+    response = await client.post("/api/v1/auth/login", json={
+        "email": "user@test.com",
+        "password": password
+    })
+    return response.json()["access_token"]

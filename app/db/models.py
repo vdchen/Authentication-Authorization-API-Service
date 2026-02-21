@@ -1,8 +1,14 @@
 """Database models."""
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, CheckConstraint
+from sqlalchemy import (Column, Integer, String, DateTime, Boolean,
+                        CheckConstraint, Enum)
 from sqlalchemy.sql import func
 from app.db.base import Base
+import enum
+
+class Role(str, enum.Enum):
+    ADMIN = "admin"
+    USER = "user"
 
 
 class User(Base):
@@ -18,9 +24,17 @@ class User(Base):
 
     # Balance logic: Integer (cents) is safer than Float for money
     # CheckConstraint ensures database rejects negative values
-    balance = Column(Integer, default=0, nullable=False)
+    # Make balance nullable so Admins can have 'None'
+    balance = Column(Integer, default=0, nullable=True)
+    role = Column(Enum(Role), default=Role.USER, nullable=False)
 
+    # Block status
     is_blocked = Column(Boolean, default=False, nullable=False)
+    block_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Soft Delete columns
+    is_deleted = Column(Boolean, default=False, nullable=False)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
 
     last_activity_at = Column(
         DateTime(timezone=True),
