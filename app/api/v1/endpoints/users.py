@@ -4,8 +4,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.db.session import get_async_session
-from app.db.models import User
-from app.dependencies import get_current_user
+from app.db.models import User, Role
+from app.dependencies import get_current_user_obj
 from app.schemas.user import UserListResponse, UserBase, UserUpdate, WithdrawRequest, BalanceResponse
 from app.services.user_service import UserService
 
@@ -13,7 +13,7 @@ router = APIRouter(prefix="/users", tags=["Users"])
 
 # Define common dependencies as Annotated types for cleaner signatures
 AsyncDB = Annotated[AsyncSession, Depends(get_async_session)]
-CurrentUserID = Annotated[int, Depends(get_current_user)]
+CurrentUser = Annotated[User, Depends(get_current_user_obj)]
 
 @router.get(
     "/",
@@ -25,7 +25,7 @@ CurrentUserID = Annotated[int, Depends(get_current_user)]
 )
 async def list_users(
     db: AsyncDB,
-    _: CurrentUserID,
+    _: CurrentUser,
     user_id: int | None = None,
     first_name: str | None = None,
     last_name: str | None = None,
@@ -46,21 +46,15 @@ async def list_users(
     description="Get details of the currently authenticated user."
 )
 async def get_my_profile(
-        db: AsyncDB,
-        user_id: CurrentUserID
+        current_user: CurrentUser
 ) -> User:
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
 
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    if not user.first_name or not user.last_name:
+    if not current_user.first_name or not current_user.last_name:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Please update your profile with first and last name."
         )
-    return user
+    return current_user
 
 
 @router.patch(
@@ -71,17 +65,15 @@ async def get_my_profile(
 async def update_profile(
         data: UserUpdate,
         db: AsyncDB,
-        user_id: CurrentUserID
+        current_user: CurrentUser
 ) -> User:
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
 
-    if data.first_name: user.first_name = data.first_name
-    if data.last_name: user.last_name = data.last_name
+    if data.first_name: current_user.first_name = data.first_name
+    if data.last_name: current_user.last_name = data.last_name
 
     await db.commit()
-    await db.refresh(user)
-    return user
+    await db.refresh(current_user)
+    return current_user
 
 
 @router.get(
@@ -92,10 +84,13 @@ async def update_profile(
 )
 async def get_balance(
         db: AsyncDB,
-        user_id: CurrentUserID
+        current_user: CurrentUser,
 ) -> dict:
+    if current_user.role == Role.ADMIN:
+        raise HTTPException(status_code=400,
+                            detail="Admins do not have a balance.")
     # only 'balance' column is selected, not the whole User object
-    result = await db.execute(select(User.balance).where(User.id == user_id))
+    result = await db.execute(select(User.balance).where(User.id == current_user.id))
     balance = result.scalar()
 
     if balance is None:
@@ -113,12 +108,17 @@ async def get_balance(
 async def withdraw(
         request: WithdrawRequest,
         db: AsyncDB,
-        user_id: CurrentUserID
+        current_user: CurrentUser,
 ) -> dict:
+
+    if current_user.role == Role.ADMIN:
+        raise HTTPException(status_code=400,
+                            detail="Admins cannot perform financial transactions.")
+
     try:
         updated_user = await UserService.withdraw_balance(
             db,
-            user_id=user_id,
+            user_id=current_user.id,
             amount=request.amount
         )
         return {"balance": updated_user.balance}
@@ -128,3 +128,17 @@ async def withdraw(
     except Exception as e:
         # Catching the 403 logic if it's moved to the service
         raise HTTPException(status_code=403, detail=str(e))
+
+
+@router.delete(
+    "/me",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete my account"
+)
+async def delete_my_account(
+        db: AsyncDB,
+        current_user: CurrentUser
+) -> None:
+    #Perform Soft Delete (is_deleted = True, update email)
+    await UserService.soft_delete_user(db, current_user)
+    return None

@@ -1,6 +1,9 @@
 """Authentication endpoints."""
 from typing import Annotated
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, HTTPException
+
+from app.core.exceptions import BlockedUserError
+from app.db.models import User
 from app.schemas.auth import (
     UserRegister,
     UserLogin,
@@ -10,7 +13,7 @@ from app.schemas.auth import (
     MessageResponse,
 )
 from app.services.auth_service import AuthService
-from app.dependencies import get_auth_service, get_current_user, get_session_id
+from app.dependencies import get_auth_service, get_current_user_obj, get_session_id
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -59,13 +62,37 @@ async def login(
         auth_service: Authentication service
 
     Returns:
-        Access token and session information
+        access, refresh, session_id, and user
     """
-    access_token, session_id, user = await auth_service.login_user(credentials)
+    try:
+        access_token, refresh_token, session_id, user = await auth_service.login_user(
+            credentials)
+
+        return TokenResponse(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            session_id=session_id
+        )
+    except BlockedUserError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail=str(e))
+
+@router.post("/refresh", response_model=TokenResponse)
+async def refresh(
+        # Expect the refresh token in the body or header
+        refresh_token: str,
+        auth_service: Annotated[AuthService, Depends(get_auth_service)],
+        # Get the session_id so we can return it in the response
+        session_id: Annotated[str, Depends(get_session_id)]
+):
+    """Endpoint to exchange a refresh token for a new access token."""
+    new_access, current_refresh = await auth_service.refresh_session(
+        refresh_token)
 
     return TokenResponse(
-        access_token=access_token,
-        token_type="bearer",
+        access_token=new_access,
+        refresh_token=current_refresh,
+        # session_id stays the same
         session_id=session_id
     )
 
@@ -105,7 +132,7 @@ async def logout(
 )
 async def change_password(
         password_data: PasswordChange,
-        user_id: Annotated[int, Depends(get_current_user)],
+        current_user: Annotated[User, Depends(get_current_user_obj)],
         auth_service: Annotated[AuthService, Depends(get_auth_service)]
 ) -> MessageResponse:
     """
@@ -113,13 +140,13 @@ async def change_password(
 
     Args:
         password_data: Password change data
-        user_id: Current user ID
+        current_user: Current user ID
         auth_service: Authentication service
 
     Returns:
         Success message
     """
-    await auth_service.change_password(user_id, password_data)
+    await auth_service.change_password(current_user.id, password_data)
 
     return MessageResponse(message="Password changed successfully")
 
@@ -132,15 +159,13 @@ async def change_password(
     description="Get details of the currently authenticated user based on the session token."
 )
 async def get_me(
-    user_id: Annotated[int, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user_obj)],
     auth_service: Annotated[AuthService, Depends(get_auth_service)]
 ) -> UserResponse:
     """
     Get current user details.
 
     Args:
-        user_id: ID extracted from the valid session/token
-        auth_service: Authentication service to fetch user data
+        current_user: ID extracted from the valid session/token
     """
-    user = await auth_service.get_user_by_id(user_id)
-    return UserResponse.model_validate(user)
+    return UserResponse.model_validate(current_user)
