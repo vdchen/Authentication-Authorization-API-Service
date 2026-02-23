@@ -2,92 +2,278 @@
 
 
 
-## Getting started
+# Authentication & Authorization API Service
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+Authentication API service built with FastAPI, featuring user registration, login, logout, and password management.
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+## Features
 
-## Add your files
+- User Registration with email validation
+- Login with JWT token-based authentication
+- Logout functionality with session management
+- Password change capability
+- Async architecture with uvloop
+- Redis session storage
+- PostgreSQL database
 
-* [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+## Tech Stack
+
+- **Framework**: FastAPI
+- **Database**: PostgreSQL with asyncpg
+- **Cache/Sessions**: Redis
+- **Event Loop**: uvloop (high-performance event loop)
+- **Validation**: Pydantic v2
+- **Authentication**: JWT (PyJWT)
+- **Password Hashing**: bcrypt
+- **Testing**: pytest with pytest-asyncio
+
+## Project Structure
 
 ```
-cd existing_repo
-git remote add origin https://git.foxminded.ua/foxstudent108690/task-23-token-caching.git
-git branch -M main
-git push -uf origin main
+auth-api-service/
+├── app/
+│   ├── __init__.py
+│   ├── main.py                 # FastAPI application entry point
+│   ├── config.py               # Configuration settings
+│   ├── dependencies.py         # Dependency injection
+│   ├── api/
+│   │   ├── __init__.py
+│   │   └── v1/
+│   │       ├── __init__.py
+│   │       └── endpoints/
+│   │           ├── __init__.py
+│   │           ├── auth.py     # Authentication endpoints
+│   │           └── users.py    # Users endpoints
+│   ├── core/
+│   │   ├── __init__.py
+│   │   ├── security.py         # Security utilities (JWT, password hashing)
+│   │   └── exceptions.py       # Custom exceptions
+│   ├── db/
+│   │   ├── __init__.py
+│   │   ├── base.py             # Database base
+│   │   ├── session.py          # Async database session management
+│   │   └── models.py           # SQLAlchemy models
+│   ├── schemas/
+│   │   ├── __init__.py
+│   │   └── auth.py             # Pydantic validation schemas
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── auth_service.py     # Business logic layer
+│   │   └── user_service.py     # Business logic layer
+│   └── utils/
+│       ├── __init__.py
+│       └── redis_client.py     # Async Redis client
+├── tests/
+│   ├── __init__.py
+│   ├── conftest.py             # Pytest fixtures
+│   ├── test_auth.py            # Authentication tests
+│   └── test_user_features.py   # user features tests
+├── Dockerfile
+├── manage.py
+├── docker-compose.yml
+├── requirements.txt
+├── .env
+├── pytest.ini
+└── README.md
 ```
 
-## Integrate with your tools
+## Password Requirements
 
-* [Set up project integrations](https://git.foxminded.ua/foxstudent108690/task-23-token-caching/-/settings/integrations)
+Passwords must meet the following criteria:
+- **Length**: 8-24 characters
+- **Must contain**:
+  - At least one digit (0-9)
+  - At least one lowercase letter (a-z)
+  - At least one uppercase letter (A-Z)
+  - At least one special character
+- **Cannot contain**: `@`, `"`, `'`, `<`, `>`
 
-## Collaborate with your team
-
-* [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
-
-## Test and Deploy
-
-Use the built-in continuous integration in GitLab.
-
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+**Valid password examples**:
+- `MyPass123!`
+- `Secure#Pass456`
+- `StrongP@ssw0rd` (Note: @ is forbidden, this would fail)
 
 ## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+### Using Docker (Recommended)
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd auth-api-service
+```
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+2. Create `.env`:
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+3. Update `.env` with your configuration (especially `SECRET_KEY` for production)
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+4. Start all services:
+```bash
+docker-compose up -d
+```
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+5. Check logs:
+```bash
+docker-compose logs -f api
+```
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+The API will be available at `http://localhost:8000`
+
+### Local Development
+
+1. Install Python 3.11+
+
+2. Create and activate virtual environment:
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
+
+3. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+4. Set up PostgreSQL and Redis locally
+
+5. Configure `.env` file with your database and Redis URLs
+
+6. Run the application
+
+## API Documentation
+
+Once the application is running, visit:
+- **Swagger UI**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
+
+## API Endpoints
+
+### Authentication Endpoints
+
+#### 1. Register User
+**POST** `/api/v1/auth/register`
+
+Register a new user with email and password.
+
+**Request Body:**
+```json
+{
+  "email": "user@example.com",
+  "password": "SecurePass123!"
+}
+```
+
+**Response (201 Created):**
+```json
+{
+  "id": 1,
+  "email": "user@example.com",
+  "created_at": "2026-02-09T10:30:00"
+}
+```
+
+#### 2. Login
+**POST** `/api/v1/auth/login`
+
+Authenticate user and receive access token.
+
+**Request Body:**
+```json
+{
+  "email": "user@example.com",
+  "password": "SecurePass123!"
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "bearer",
+  "session_id": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+#### 3. Logout
+**POST** `/api/v1/auth/logout`
+
+Logout user and invalidate session.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Response (200 OK):**
+```json
+{
+  "message": "Successfully logged out"
+}
+```
+
+#### 4. Change Password
+**PUT** `/api/v1/auth/change-password`
+
+Change the authenticated user's password.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Request Body:**
+```json
+{
+  "old_password": "SecurePass123!",
+  "new_password": "NewSecurePass456#"
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "message": "Password changed successfully"
+}
+```
+
+### Health Check Endpoints
+
+#### Root
+**GET** `/`
+
+Returns basic API information.
+
+#### Health Check
+**GET** `/health`
+
+Returns service health status.
+
+## Testing
+
+Run the complete test suite:
+
+```bash
+pytest tests/ -v
+```
+
+Run with coverage report:
+
+```bash
+pytest tests/ --cov=app --cov-report=html
+```
+
+View coverage report:
+```bash
+open htmlcov/index.html  # macOS
+xdg-open htmlcov/index.html  # Linux
+start htmlcov/index.html  # Windows
+```
+
+Run specific test class:
+```bash
+pytest tests/test_auth.py::TestRegistration -v
+```
 
 ## License
-For open source projects, say how it is licensed.
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+MIT License - Feel free to use this project for learning or production purposes.
