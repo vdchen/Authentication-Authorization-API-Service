@@ -18,7 +18,8 @@ class UserService:
             sort_by: str = "id",
             sort_order: str = "asc"
     ) -> List[User]:
-        query = select(User)
+        # ALWAYS filter out deleted users for the public user list
+        query = select(User).where(User.is_deleted == False)
 
         # Filtering
         if user_id is not None:

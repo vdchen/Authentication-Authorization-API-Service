@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 import jwt
 from fastapi import HTTPException, status
 from app.db.session import get_async_session
@@ -74,7 +75,7 @@ async def get_current_user_obj(
         db: Annotated[AsyncSession, Depends(get_async_session)]
 ) -> User:
     """Fetches the user and checks if they are blocked or deleted."""
-    from sqlalchemy import select
+
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
 

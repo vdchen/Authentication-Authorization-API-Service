@@ -19,7 +19,7 @@ from app.core.exceptions import (
     UserNotFoundError,
     InvalidPasswordError,
     DatabaseError, SessionNotFoundError,
-    AuthenticationError
+    AuthenticationError, BlockedUserError
 )
 from app.utils.redis_client import RedisClient
 
@@ -68,8 +68,13 @@ class AuthService:
             )
             user = result.scalar_one_or_none()
 
-            if not user:
+            # 1. Check if user exists OR is soft-deleted
+            if not user or user.is_deleted:
                 raise UserNotFoundError()
+
+            # 2. Check if user is blocked (Return 403 logic)
+            if user.is_blocked:
+                raise BlockedUserError("Your account is blocked.")
 
             # verify_and_update checks if password is correct AND if the hash is "old" (like Bcrypt)
             is_correct, new_hash = password_hash.verify_and_update(
@@ -121,6 +126,12 @@ class AuthService:
 
             if not user_id:
                 raise SessionNotFoundError()
+
+            user = await self.get_user_by_id(user_id)
+            if not user or user.is_deleted:
+                raise AuthenticationError("User not found")
+            if user.is_blocked:
+                raise BlockedUserError("Your account is blocked.")
 
             # Issue a new access token
             new_access_token = create_token(
