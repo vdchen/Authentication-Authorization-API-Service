@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from typing import Annotated
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from aiocache import cached
+from aiocache.serializers import JsonSerializer
 
 from app.db.models import Role, User
 from app.db.session import get_async_session
@@ -15,7 +17,30 @@ router = APIRouter(prefix="/admin", tags=["Admin Management"])
 AsyncDB = Annotated[AsyncSession, Depends(get_async_session)]
 CurrentUserID = Annotated[int, Depends(get_current_user)]
 
+
+def build_admin_list_key(func, *args, **kwargs):
+    """
+    Custom key builder for aiocache.
+    Ignores 'db' and 'admin' objects which cannot be serialized,
+    and builds a dynamic key based on query parameters.
+    """
+    # Filter out the database session and the admin user object
+    cache_kwargs = {k: v for k, v in kwargs.items() if
+                    k not in ("db", "admin")}
+
+    # Create a unique string based on the active search/sort parameters
+    # Example: "admin_users:sort_by=id&sort_order=asc"
+    query_string = "&".join(
+        f"{k}={v}" for k, v in sorted(cache_kwargs.items()) if v is not None)
+
+    return f"admin_users:{query_string}"
+
 @router.get("/users", response_model=AdminUserListResponse)
+@cached(
+    ttl=60,
+    key_builder=build_admin_list_key,
+    serializer=JsonSerializer(),
+)
 async def list_users_admin(
     db: AsyncDB,
     admin: Annotated[User, Depends(get_current_admin)],

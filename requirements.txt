@@ -11,6 +11,9 @@ sqlalchemy[asyncio]==2.0.46
 # Redis
 redis[hiredis]==7.1.1
 
+#Cache
+aiocache==0.12.3
+
 # Authentication & Security
 pyjwt==2.11.0
 bcrypt==5.0.0

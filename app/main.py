@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
+from aiocache import caches
 from app.config import settings
 from app.api.v1 import api_router
 from app.db.session import init_db, close_db
@@ -30,9 +31,22 @@ async def lifespan(app: FastAPI):
         await init_db()
         logger.info("Database tables initialized.")
 
-        # 2. Connect to Redis (with health check)
+        # Connect to Redis (with health check)
         await redis_client.connect()
         logger.info("Connected to Redis.")
+
+        # Configure aiocache to use Redis instead of memory
+        caches.set_config({
+            'default': {
+                'cache': "aiocache.RedisCache",
+                'endpoint': settings.redis_host,
+                'port': settings.redis_port,
+                'timeout': 1,
+                'serializer': {
+                    'class': "aiocache.serializers.JsonSerializer"
+                }
+            }
+        })
 
     except Exception as e:
         logger.error("Startup failed: %s", e)

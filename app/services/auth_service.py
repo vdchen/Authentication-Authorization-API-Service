@@ -99,12 +99,20 @@ class AuthService:
             await self.db.commit()
 
             session_id = str(uuid.uuid4())
+
+            # Store in Redis with TTL (60 mins)
+            # Automatically 'deletes' the session when the token expires
+            await self.redis.set_session(
+                session_id=session_id,
+                user_id=user.id,
+                expire_minutes=settings.access_token_expire_minutes
+            )
+
             # Generate both tokens including session_id
             access_token, refresh_token = create_tokens(
                 data={"sub": user.email, "session_id": session_id}
             )
 
-            await self.redis.set_session(session_id, user.id)
             return access_token, refresh_token, session_id, user
 
         except (UserNotFoundError, InvalidPasswordError):

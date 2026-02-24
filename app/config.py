@@ -1,6 +1,6 @@
 """Application configuration using Pydantic settings."""
 from typing import List, Union
-from pydantic import field_validator, AnyHttpUrl
+from pydantic import field_validator, AnyHttpUrl, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pathlib import Path
 
@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     redis_url: str
     redis_session_prefix: str = "session:"
     redis_session_expire_seconds: int = 1800
+    redis_host: str = Field("127.0.0.1", validation_alias="REDIS_HOST")
+    redis_port: int = 6379
+
 
     # CORS
     # Using Union[List[str], str] helps type checkers understand it starts as a string

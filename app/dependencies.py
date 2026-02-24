@@ -6,6 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import jwt
 from fastapi import HTTPException, status
+
+from app.config import settings
 from app.db.session import get_async_session
 from app.utils.redis_client import get_redis_client, RedisClient
 from app.services.auth_service import AuthService
@@ -58,7 +60,7 @@ async def get_current_user(
         raise SessionNotFoundError()
 
     # Sliding window session: extend on every request
-    await redis.extend_session(session_id)
+    await redis.extend_session(session_id, settings.access_token_expire_minutes)
     return user_id
 
 async def get_session_id(
