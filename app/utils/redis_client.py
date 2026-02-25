@@ -80,6 +80,37 @@ class RedisClient:
         except Exception as e:
             raise RedisError(f"Failed to extend session: {str(e)}")
 
+    async def invalidate_admin_cache(self) -> None:
+        """
+        Finds and deletes all Redis keys associated with the 'admin_list' namespace.
+        This ensures that when a user is blocked or registered, the admin list is refreshed.
+        """
+        if not self.client:
+            return
+
+        # aiocache often stores keys as ':admin_list:<hash>' or 'admin_list:<hash>'
+        # Using *admin_list* ensures we catch both formats.
+        match_pattern = "*admin_list*"
+        cursor = 0
+
+        try:
+            while True:
+                # SCAN returns a cursor and a list of keys found
+                cursor, keys = await self.client.scan(
+                    cursor=cursor,
+                    match=match_pattern,
+                    count=100
+                )
+                if keys:
+                    await self.client.delete(*keys)
+
+                # If cursor is 0, the iteration is complete
+                if cursor == 0:
+                    break
+        except Exception as e:
+            # We raise a custom error or log it so it doesn't crash the main DB transaction
+            raise RedisError(f"Failed to invalidate admin cache: {str(e)}")
+
 
 # Global Redis client instance
 redis_client = RedisClient()
