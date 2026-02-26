@@ -22,8 +22,6 @@ class Settings(BaseSettings):
     debug: bool = False
     api_v1_prefix: str = "/api/v1"
 
-    #Environment tracking
-    env: str = "development"
 
     # Security
     secret_key: str
