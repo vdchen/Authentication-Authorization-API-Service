@@ -9,12 +9,11 @@ from app.api.v1 import api_router
 from app.db.session import init_db, close_db
 from app.utils.redis_client import redis_client
 import logging
+from app.core.logging_config import setup_logging
+
 
 # Setup Logging Configuration
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
+setup_logging()
 logger = logging.getLogger(__name__)
 
 @asynccontextmanager
@@ -24,7 +23,7 @@ async def lifespan(app: FastAPI):
     Handles the startup and shutdown sequence safely.
     """
     # --- Startup ---
-    logger.info("Starting %s...", settings.app_name)
+    logger.info("Starting %s in %s mode...", settings.app_name, settings.ENVIRONMENT)
 
     try:
         # Create Database Tables
