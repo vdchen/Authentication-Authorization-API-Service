@@ -92,7 +92,7 @@ Passwords must meet the following criteria:
 **Valid password examples**:
 - `MyPass123!`
 - `Secure#Pass456`
-- `StrongP@ssw0rd` (Note: @ is forbidden, this would fail)
+- `StrongP_ssw0rd`
 
 ## Installation
 
