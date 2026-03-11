@@ -4,8 +4,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import User
 from sqlalchemy.sql import func
 from app.core.exceptions import RedisError
+import logging
 import time
 
+from app.utils.redis_client import RedisClient
+
+logger = logging.getLogger(__name__)
 
 class UserService:
     @staticmethod
@@ -89,7 +93,9 @@ class UserService:
             include_deleted: bool = False
     ) -> List[User]:
         # Filter out deleted users by default unless explicitly requested
-        query = select(User).where(User.is_deleted == include_deleted)
+        query = select(User)
+        if not include_deleted:
+            query = query.where(User.is_deleted == False)
 
         # Filtering
         if user_id is not None:
@@ -109,11 +115,15 @@ class UserService:
         result = await db.execute(query)
         return list(result.scalars().all())
 
-
     @staticmethod
-    async def update_block_status(db: AsyncSession, target_user_id: int,
-                                  block: bool) -> User:
-        result = await db.execute(select(User).where(User.id == target_user_id))
+    async def update_block_status(
+            db: AsyncSession,
+            redis: RedisClient,
+            target_user_id: int,
+            block: bool
+    ) -> User:
+        result = await db.execute(
+            select(User).where(User.id == target_user_id))
         user = result.scalar_one_or_none()
 
         if not user or user.is_deleted:
@@ -124,4 +134,10 @@ class UserService:
 
         await db.commit()
         await db.refresh(user)
+
+        try:
+            await redis.invalidate_admin_cache()
+        except Exception as e:
+            logger.warning(f"Failed to clear cache after blocking user: {e}")
+
         return user
