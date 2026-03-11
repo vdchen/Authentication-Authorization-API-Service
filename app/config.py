@@ -1,5 +1,5 @@
 """Application configuration using Pydantic settings."""
-from typing import List, Union
+from typing import List, Union, Literal
 from pydantic import field_validator, AnyHttpUrl, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pathlib import Path
@@ -22,8 +22,6 @@ class Settings(BaseSettings):
     debug: bool = False
     api_v1_prefix: str = "/api/v1"
 
-    #Environment tracking
-    env: str = "development"
 
     # Security
     secret_key: str
@@ -49,6 +47,9 @@ class Settings(BaseSettings):
     # Server
     host: str = "0.0.0.0"
     port: int = 8000
+
+    #"local", "dev", "prod"
+    ENVIRONMENT: Literal["local", "dev", "prod"] = "local"
 
     @field_validator("cors_origins", mode="before")
     @classmethod

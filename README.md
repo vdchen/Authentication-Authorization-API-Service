@@ -1,4 +1,4 @@
-# Task 23 Token Caching
+# Task 24 Logging Level Determination
 
 
 
@@ -42,6 +42,7 @@ auth-api-service/
 │   │       ├── __init__.py
 │   │       └── endpoints/
 │   │           ├── __init__.py
+│   │           ├── admin.py    # Admin endpoints  
 │   │           ├── auth.py     # Authentication endpoints
 │   │           └── users.py    # Users endpoints
 │   ├── core/
@@ -55,6 +56,7 @@ auth-api-service/
 │   │   └── models.py           # SQLAlchemy models
 │   ├── schemas/
 │   │   ├── __init__.py
+│   │   ├── user.py             # Pydantic validation schemas
 │   │   └── auth.py             # Pydantic validation schemas
 │   ├── services/
 │   │   ├── __init__.py
@@ -66,7 +68,9 @@ auth-api-service/
 ├── tests/
 │   ├── __init__.py
 │   ├── conftest.py             # Pytest fixtures
+│   ├── test_admin.py           # admin features tests
 │   ├── test_auth.py            # Authentication tests
+│   ├── test_redis_features.py  # Authentication tests
 │   └── test_user_features.py   # user features tests
 ├── Dockerfile
 ├── manage.py
@@ -74,6 +78,7 @@ auth-api-service/
 ├── requirements.txt
 ├── .env
 ├── pytest.ini
+├── alembic.ini
 └── README.md
 ```
 
