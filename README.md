@@ -1,7 +1,3 @@
-# Task 24 Logging Level Determination
-
-
-
 # Authentication & Authorization API Service
 
 Authentication API service built with FastAPI, featuring user registration, login, logout, and password management.
