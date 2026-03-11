@@ -86,7 +86,21 @@ async def test_withdraw_insufficient_funds(client, auth_headers,
     assert "Insufficient funds" in response.json()["detail"]
 
 
+@pytest.mark.asyncio
+async def test_user_soft_delete(client, user_token: str):
+    # 1. Perform deletion
+    response = await client.delete(
+        "/api/v1/users/me",
+        headers={"Authorization": f"Bearer {user_token}"}
+    )
+    assert response.status_code == 204
 
+    # 2. Try to login again (should fail because user is_deleted)
+    login_response = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "user@test.com", "password": "..."}
+    )
+    assert login_response.status_code == 404
 
 
 

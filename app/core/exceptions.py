@@ -63,3 +63,6 @@ class RedisError(Exception):
     """Raised when Redis operations fail."""
 
     pass
+
+class BlockedUserError(Exception):
+    pass
